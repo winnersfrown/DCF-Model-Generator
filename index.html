@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DCF Model Generator — Interactive Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root, html[data-theme="dark"]{
+    --bg: #0A0F1A;
+    --panel: #111A2B;
+    --panel-2: #16223A;
+    --line: #223252;
+    --text: #E7ECF5;
+    --muted: #7C8AA8;
+    --amber: #F2B84B;
+    --amber-dim: #8A6A2E;
+    --amber-glow: rgba(242,184,75,.18);
+    --amber-glow-strong: rgba(242,184,75,.15);
+    --teal: #4FD1B5;
+    --teal-dim: #1f5f52;
+    --red: #E8697A;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg: #EAEFF6;
+    --panel: #FFFFFF;
+    --panel-2: #F2F5FA;
+    --line: #D6DEEA;
+    --text: #16233A;
+    --muted: #5B6B85;
+    --amber: #B9791E;
+    --amber-dim: #E8C98A;
+    --amber-glow: rgba(185,121,30,.15);
+    --amber-glow-strong: rgba(185,121,30,.14);
+    --teal: #12876F;
+    --teal-dim: #A8DCCF;
+    --red: #C6435A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    transition:background .2s ease, color .2s ease;
+  }
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 60px; }
+
+  /* ---- ticker strip (signature element) ---- */
+  .ticker{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+    overflow:hidden; white-space:nowrap; margin-bottom:22px; position:relative;
+  }
+  .ticker-track{ display:inline-block; padding:10px 0; animation:scroll 22s linear infinite; }
+  .ticker span{ font-family:var(--mono); font-size:13px; color:var(--muted); padding:0 26px; letter-spacing:.02em; }
+  .ticker span b{ color:var(--amber); font-weight:600; }
+  .ticker span.up{ color:var(--teal); }
+  .ticker span.down{ color:var(--red); }
+  @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+
+  header{ display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:22px; flex-wrap:wrap;}
+  h1{ font-family:var(--mono); font-size:20px; letter-spacing:.04em; margin:0; font-weight:600; }
+  h1 .dim{ color:var(--muted); font-weight:400; }
+  .sub{ color:var(--muted); font-size:13px; margin-top:4px; }
+
+  .grid{ display:grid; grid-template-columns: 340px 1fr; gap:20px; }
+  @media (max-width: 880px){ .grid{ grid-template-columns: 1fr; } }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; }
+  .panel + .panel{ margin-top:20px; }
+  .panel h2{
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.12em;
+    color:var(--amber); margin:0 0 14px;
+  }
+
+  .field{ margin-bottom:16px; }
+  .field label{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:6px; }
+  .field label b{ color:var(--text); font-family:var(--mono); font-weight:500; }
+  input[type=range]{
+    width:100%; height:4px; appearance:none; background:var(--line); border-radius:2px; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    appearance:none; width:14px; height:14px; border-radius:50%; background:var(--amber);
+    cursor:pointer; box-shadow:0 0 0 3px var(--amber-glow);
+  }
+  input[type=number]{
+    width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text);
+    font-family:var(--mono); font-size:13px; padding:7px 8px; border-radius:6px;
+  }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .hero{ text-align:left; }
+  .hero .label{ font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; }
+  .hero .price{ font-family:var(--mono); font-size:56px; font-weight:700; color:var(--amber); line-height:1.1; margin:6px 0 2px; }
+  .hero .delta{ font-family:var(--mono); font-size:13px; }
+  .hero .delta.up{ color:var(--teal); } .hero .delta.down{ color:var(--red); }
+
+  .stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:18px; }
+  .stat{ background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .stat .k{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+  .stat .v{ font-family:var(--mono); font-size:17px; margin-top:4px; }
+
+  .chart-wrap{ margin-top:20px; }
+  .bars{ display:flex; align-items:flex-end; gap:10px; height:200px; padding:10px 4px 0; border-bottom:1px solid var(--line); }
+  .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; position:relative; }
+  .bar{ width:100%; max-width:46px; background:linear-gradient(180deg, var(--amber), var(--amber-dim)); border-radius:4px 4px 0 0; transition:height .25s ease; }
+  .bar.tv{ background:linear-gradient(180deg, var(--teal), var(--teal-dim)); }
+  .bar-val{ font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .bar-lbl{ font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:8px; }
+
+  table{ width:100%; border-collapse:collapse; margin-top:8px; font-family:var(--mono); font-size:12.5px; }
+  th, td{ padding:7px 8px; text-align:right; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child{ text-align:left; color:var(--muted); }
+  th{ color:var(--muted); font-weight:500; text-transform:uppercase; font-size:10.5px; letter-spacing:.06em; }
+  td.fcf{ color:var(--amber); }
+
+  .sens-table td, .sens-table th{ text-align:center; padding:6px; }
+  .sens-table td{ font-family:var(--mono); font-size:12px; cursor:default; }
+  .sens-table td.base{ background:var(--amber-glow-strong); color:var(--amber); font-weight:600; border-radius:4px; }
+  .sens-table th{ color:var(--muted); font-size:10.5px; }
+  .sens-table .row-label{ color:var(--muted); }
+
+  footer{ margin-top:30px; color:var(--muted); font-size:12px; text-align:center; }
+  footer a{ color:var(--amber); text-decoration:none; }
+
+  .theme-toggle{
+    display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+    border-radius:20px; padding:5px 6px; cursor:pointer; font-family:var(--mono); font-size:12px;
+    color:var(--muted); user-select:none;
+  }
+  .theme-toggle .icon{
+    width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:var(--panel-2); font-size:13px; transition:background .2s ease;
+  }
+  .theme-toggle .icon.active{ background:var(--amber); color:var(--bg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
+
+  <header>
+    <div>
+      <h1>DCF://<span class="dim">model-generator</span></h1>
+      <div class="sub">Adjust the assumptions on the left — every number on this page recalculates live, the same way the Excel export does.</div>
+    </div>
+    <div class="theme-toggle" id="themeToggle" role="button" aria-label="Toggle light/dark mode">
+      <div class="icon" id="iconDark">●</div>
+      <span id="themeLabel">DARK</span>
+      <div class="icon" id="iconLight">○</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: inputs -->
+    <div>
+      <div class="panel">
+        <h2>Company Financials</h2>
+        <div class="row2">
+          <div class="field"><label>Revenue ($mm) <b id="lblRevenue"></b></label><input type="number" id="revenue" value="120" step="1"></div>
+          <div class="field"><label>EBIT ($mm) <b id="lblEbit"></b></label><input type="number" id="ebit" value="25" step="1"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Net Debt ($mm) <b id="lblDebt"></b></label><input type="number" id="netdebt" value="30" step="1"></div>
+          <div class="field"><label>Shares (mm) <b id="lblShares"></b></label><input type="number" id="shares" value="12" step="0.5"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Forecast Assumptions</h2>
+        <div class="field">
+          <label>Revenue growth, Year 1 <b id="lblG1"></b></label>
+          <input type="range" id="growthStart" min="-5" max="30" value="10" step="0.5">
+        </div>
+        <div class="field">
+          <label>Revenue growth, fades to <b id="lblG2"></b></label>
+          <input type="range" id="growthEnd" min="0" max="10" value="3" step="0.25">
+        </div>
+        <div class="field">
+          <label>Projection years <b id="lblYears"></b></label>
+          <input type="range" id="years" min="3" max="10" value="5" step="1">
+        </div>
+        <div class="field">
+          <label>Tax rate <b id="lblTax"></b></label>
+          <input type="range" id="taxRate" min="0" max="40" value="25" step="1">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Discount Rate &amp; Terminal Value</h2>
+        <div class="field">
+          <label>WACC <b id="lblWacc"></b></label>
+          <input type="range" id="wacc" min="4" max="18" value="9" step="0.25">
+        </div>
+        <div class="field">
+          <label>Terminal growth rate <b id="lblTg"></b></label>
+          <input type="range" id="termGrowth" min="0" max="4.5" value="2.5" step="0.25">
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: outputs -->
+    <div>
+      <div class="panel hero">
+        <div class="label">Implied share price</div>
+        <div class="price" id="price">$0.00</div>
+        <div class="delta" id="delta"></div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Enterprise Value</div><div class="v" id="ev">–</div></div>
+          <div class="stat"><div class="k">Equity Value</div><div class="v" id="eqv">–</div></div>
+          <div class="stat"><div class="k">Terminal Value %</div><div class="v" id="tvpct">–</div></div>
+        </div>
+
+        <div class="chart-wrap">
+          <div class="bars" id="bars"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Projection</h2>
+        <table id="projTable"></table>
+      </div>
+
+      <div class="panel">
+        <h2>Sensitivity — Implied Share Price</h2>
+        <table class="sens-table" id="sensTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Client-side reference implementation of the same math in <a href="../dcf_model_generator/engine.py">engine.py</a>. No data leaves your browser.
+  </footer>
+</div>
+
+<script>
+// ---- light / dark mode ----
+const root = document.documentElement;
+const themeToggle = document.getElementById('themeToggle');
+const themeLabel = document.getElementById('themeLabel');
+const iconDark = document.getElementById('iconDark');
+const iconLight = document.getElementById('iconLight');
+
+function applyTheme(theme){
+  root.setAttribute('data-theme', theme);
+  themeLabel.textContent = theme.toUpperCase();
+  iconDark.classList.toggle('active', theme === 'dark');
+  iconLight.classList.toggle('active', theme === 'light');
+}
+
+// Default to the visitor's system preference, dark if unknown.
+const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+applyTheme(prefersLight ? 'light' : 'dark');
+
+themeToggle.addEventListener('click', () => {
+  const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+});
+
+const els = {
+  revenue: document.getElementById('revenue'),
+  ebit: document.getElementById('ebit'),
+  netdebt: document.getElementById('netdebt'),
+  shares: document.getElementById('shares'),
+  growthStart: document.getElementById('growthStart'),
+  growthEnd: document.getElementById('growthEnd'),
+  years: document.getElementById('years'),
+  taxRate: document.getElementById('taxRate'),
+  wacc: document.getElementById('wacc'),
+  termGrowth: document.getElementById('termGrowth'),
+};
+
+const fmtMoney = v => `$${v.toLocaleString(undefined,{maximumFractionDigits:1, minimumFractionDigits:1})}`;
+const fmtPct = v => `${v.toFixed(2)}%`;
+
+let lastPrice = null;
+
+function growthSchedule(g1, g2, n){
+  if(n === 1) return [g1];
+  const step = (g2 - g1) / (n - 1);
+  return Array.from({length:n}, (_,i) => g1 + step*i);
+}
+
+function project(revenue, ebit, n, g1, g2, taxRate){
+  const ebitMargin = ebit / revenue;
+  const daPct = 0.07;   // held flat, matches engine.py's historical-ratio default when unset
+  const capexPct = 0.09;
+  const nwcPct = 0.02;
+  const growths = growthSchedule(g1/100, g2/100, n);
+
+  let prevRev = revenue;
+  const rows = [];
+  growths.forEach((g, i) => {
+    const rev = prevRev * (1+g);
+    const eb = rev * ebitMargin;
+    const nopat = eb * (1 - taxRate/100);
+    const da = rev * daPct;
+    const capex = rev * capexPct;
+    const dNwc = (rev - prevRev) * nwcPct;
+    const fcf = nopat + da - capex - dNwc;
+    rows.push({year:i+1, growth:g, revenue:rev, ebit:eb, nopat, da, capex, dNwc, fcf});
+    prevRev = rev;
+  });
+  return rows;
+}
+
+function valuation(rows, wacc, termGrowth, netDebt, shares){
+  const n = rows.length;
+  const w = wacc/100, g = termGrowth/100;
+  let pvFcf = 0;
+  rows.forEach(r => { pvFcf += r.fcf / Math.pow(1+w, r.year); });
+  let tv = null, pvTv = 0;
+  if (w > g){
+    tv = rows[n-1].fcf * (1+g) / (w - g);
+    pvTv = tv / Math.pow(1+w, n);
+  }
+  const ev = pvFcf + pvTv;
+  const eqv = ev - netDebt;
+  const price = shares > 0 ? eqv/shares : 0;
+  return {pvFcf, tv, pvTv, ev, eqv, price, n};
+}
+
+function sensitivityGrid(revenue, ebit, n, g1, g2, taxRate, netDebt, shares, baseWacc, baseGrowth){
+  const waccSteps = [-1,-0.5,0,0.5,1].map(d => baseWacc + d);
+  const growthSteps = [-0.75,-0.375,0,0.375,0.75].map(d => baseGrowth + d);
+  const rows = project(revenue, ebit, n, g1, g2, taxRate);
+  const grid = waccSteps.map(w => growthSteps.map(g => {
+    if (w <= g) return null;
+    return valuation(rows, w, g, netDebt, shares).price;
+  }));
+  return {waccSteps, growthSteps, grid};
+}
+
+function render(){
+  const revenue = parseFloat(els.revenue.value) || 0;
+  const ebit = parseFloat(els.ebit.value) || 0;
+  const netDebt = parseFloat(els.netdebt.value) || 0;
+  const shares = parseFloat(els.shares.value) || 0;
+  const g1 = parseFloat(els.growthStart.value);
+  const g2 = parseFloat(els.growthEnd.value);
+  const n = parseInt(els.years.value);
+  const taxRate = parseFloat(els.taxRate.value);
+  const wacc = parseFloat(els.wacc.value);
+  const termGrowth = parseFloat(els.termGrowth.value);
+
+  document.getElementById('lblRevenue').textContent = '';
+  document.getElementById('lblG1').textContent = fmtPct(g1);
+  document.getElementById('lblG2').textContent = fmtPct(g2);
+  document.getElementById('lblYears').textContent = n;
+  document.getElementById('lblTax').textContent = fmtPct(taxRate);
+  document.getElementById('lblWacc').textContent = fmtPct(wacc);
+  document.getElementById('lblTg').textContent = fmtPct(termGrowth);
+
+  const rows = project(revenue, ebit, n, g1, g2, taxRate);
+  const val = valuation(rows, wacc, termGrowth, netDebt, shares);
+
+  // Hero price + delta vs last render
+  const priceEl = document.getElementById('price');
+  const deltaEl = document.getElementById('delta');
+  priceEl.textContent = fmtMoney(val.price);
+  if(lastPrice !== null && Math.abs(val.price - lastPrice) > 0.001){
+    const diff = val.price - lastPrice;
+    deltaEl.textContent = (diff>0?'▲ ':'▼ ') + fmtMoney(Math.abs(diff)) + ' vs last change';
+    deltaEl.className = 'delta ' + (diff>0?'up':'down');
+  }
+  lastPrice = val.price;
+
+  document.getElementById('ev').textContent = fmtMoney(val.ev);
+  document.getElementById('eqv').textContent = fmtMoney(val.eqv);
+  document.getElementById('tvpct').textContent = val.ev !== 0 ? fmtPct(100*val.pvTv/val.ev) : '–';
+
+  // Waterfall-style bars: PV(FCF) per year + PV(terminal value)
+  const barsEl = document.getElementById('bars');
+  barsEl.innerHTML = '';
+  const pvValues = rows.map(r => r.fcf / Math.pow(1+wacc/100, r.year));
+  const maxVal = Math.max(...pvValues, val.pvTv, 1);
+  rows.forEach((r,i) => {
+    const h = Math.max(4, (pvValues[i]/maxVal)*160);
+    barsEl.insertAdjacentHTML('beforeend', `
+      <div class="bar-col">
+        <div class="bar-val">${fmtMoney(pvValues[i])}</div>
+        <div class="bar" style="height:${h}px"></div>
+        <div class="bar-lbl">Y${r.year}</div>
+      </div>`);
+  });
+  const tvH = Math.max(4, (val.pvTv/maxVal)*160);
+  barsEl.insertAdjacentHTML('beforeend', `
+    <div class="bar-col">
+      <div class="bar-val">${fmtMoney(val.pvTv)}</div>
+      <div class="bar tv" style="height:${tvH}px"></div>
+      <div class="bar-lbl">TV</div>
+    </div>`);
+
+  // Projection table
+  const t = document.getElementById('projTable');
+  t.innerHTML = `<tr><th>Year</th><th>Growth</th><th>Revenue</th><th>EBIT</th><th>FCF</th></tr>` +
+    rows.map(r => `<tr><td>${r.year}</td><td>${fmtPct(r.growth*100)}</td><td>${fmtMoney(r.revenue)}</td><td>${fmtMoney(r.ebit)}</td><td class="fcf">${fmtMoney(r.fcf)}</td></tr>`).join('');
+
+  // Sensitivity grid
+  const sens = sensitivityGrid(revenue, ebit, n, g1, g2, taxRate, netDebt, shares, wacc, termGrowth);
+  const st = document.getElementById('sensTable');
+  let html = '<tr><th>WACC \\ g</th>' + sens.growthSteps.map(g => `<th>${fmtPct(g)}</th>`).join('') + '</tr>';
+  sens.grid.forEach((rowVals, i) => {
+    html += `<tr><td class="row-label">${fmtPct(sens.waccSteps[i])}</td>` +
+      rowVals.map((v,j) => {
+        const isBase = i===2 && j===2;
+        return `<td class="${isBase?'base':''}">${v===null?'n/a':fmtMoney(v)}</td>`;
+      }).join('') + '</tr>';
+  });
+  st.innerHTML = html;
+
+  // Ticker
+  const tk = document.getElementById('tickerTrack');
+  const items = [
+    `PRICE <b>${fmtMoney(val.price)}</b>`,
+    `EV <b>${fmtMoney(val.ev)}</b>`,
+    `WACC <b>${fmtPct(wacc)}</b>`,
+    `TERMINAL g <b>${fmtPct(termGrowth)}</b>`,
+    `YR1 GROWTH <b>${fmtPct(g1)}</b>`,
+    `TAX <b>${fmtPct(taxRate)}</b>`,
+  ];
+  const line = items.map(i => `<span>${i}</span>`).join('');
+  tk.innerHTML = line + line; // duplicated for seamless scroll loop
+}
+
+Object.values(els).forEach(el => el.addEventListener('input', render));
+render();
+</script>
+</body>
+</html>
