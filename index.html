@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DCF Model Generator — Interactive Demo</title>
+<meta name="description" content="Build a discounted cash flow valuation live in your browser — adjust growth, WACC, and terminal value assumptions and see the implied share price, cash flow chart, and sensitivity grid update instantly.">
+<meta property="og:title" content="DCF Model Generator — Interactive Demo">
+<meta property="og:description" content="Live, in-browser DCF valuation: growth, WACC, and terminal value sliders update the implied share price, cash flow waterfall, and sensitivity grid in real time.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="DCF Model Generator — Interactive Demo">
+<meta name="twitter:description" content="Live, in-browser DCF valuation with real-time sensitivity analysis.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230A0F1A'/%3E%3Cg fill='none' stroke='%23F2B84B' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M10 44 L24 30 L34 38 L54 16'/%3E%3C/g%3E%3Cpath d='M42 16 H54 V28' fill='none' stroke='%23F2B84B' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -76,8 +84,24 @@
   }
 
   .field{ margin-bottom:16px; }
-  .field label{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:6px; }
+  .field label{ display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--muted); margin-bottom:6px; }
   .field label b{ color:var(--text); font-family:var(--mono); font-weight:500; }
+  .lbltext{ display:inline-flex; align-items:center; }
+
+  .tip{
+    display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px;
+    border-radius:50%; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    font-size:10px; font-family:var(--mono); margin-left:6px; cursor:help; position:relative;
+  }
+  .tip:hover, .tip:focus{ color:var(--amber); border-color:var(--amber); outline:none; }
+  .tip::after{
+    content:attr(data-tip); position:absolute; bottom:135%; left:0; width:210px;
+    background:var(--panel); border:1px solid var(--line); color:var(--text); font-family:var(--sans);
+    font-size:11.5px; font-weight:400; line-height:1.45; padding:9px 11px; border-radius:8px;
+    box-shadow:0 8px 22px rgba(0,0,0,.35); opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .15s ease; z-index:30; text-align:left;
+  }
+  .tip:hover::after, .tip:focus::after{ opacity:1; visibility:visible; }
   input[type=range]{
     width:100%; height:4px; appearance:none; background:var(--line); border-radius:2px; outline:none;
   }
@@ -146,6 +170,28 @@
   .tbtn-note{ font-family:var(--mono); font-size:11.5px; color:var(--muted); }
   .tbtn-note.err{ color:var(--red); }
   .tbtn-note.ok{ color:var(--teal); }
+
+  .warn-banner{
+    margin-top:10px; padding:10px 12px; border-radius:8px; font-size:12.5px; line-height:1.5;
+    background:var(--amber-glow-strong); border:1px solid var(--amber); color:var(--amber);
+  }
+
+  .scenario-controls{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:6px; }
+  @media (max-width: 640px){ .scenario-controls{ grid-template-columns:1fr; } }
+  .scenario-cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
+  @media (max-width: 640px){ .scenario-cards{ grid-template-columns:1fr; } }
+  .scenario-card{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:16px;
+    text-align:center;
+  }
+  .scenario-card.base{ border-color:var(--amber); }
+  .scenario-card .sname{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+  .scenario-card.bear .sname{ color:var(--red); }
+  .scenario-card.bull .sname{ color:var(--teal); }
+  .scenario-card.base .sname{ color:var(--amber); }
+  .scenario-card .sprice{ font-family:var(--mono); font-size:26px; font-weight:700; margin:8px 0 6px; }
+  .scenario-card .sdetail{ font-size:11px; color:var(--muted); font-family:var(--mono); line-height:1.7; }
+  .scenario-card .sna{ font-size:11px; color:var(--amber); font-family:var(--mono); margin-top:6px; }
 </style>
 </head>
 <body>
@@ -181,31 +227,31 @@
       <div class="panel">
         <h2>Company Financials</h2>
         <div class="row2">
-          <div class="field"><label>Revenue ($mm) <b id="lblRevenue"></b></label><input type="number" id="revenue" value="120" step="1"></div>
-          <div class="field"><label>EBIT ($mm) <b id="lblEbit"></b></label><input type="number" id="ebit" value="25" step="1"></div>
+          <div class="field"><label><span class="lbltext">Revenue ($mm) <span class="tip" tabindex="0" data-tip="Most recent fiscal year revenue. Keep all dollar inputs in the same unit (millions here).">?</span></span><b id="lblRevenue"></b></label><input type="number" id="revenue" value="120" step="1"></div>
+          <div class="field"><label><span class="lbltext">EBIT ($mm) <span class="tip" tabindex="0" data-tip="Operating income before interest and taxes for the same period as revenue.">?</span></span><b id="lblEbit"></b></label><input type="number" id="ebit" value="25" step="1"></div>
         </div>
         <div class="row2">
-          <div class="field"><label>Net Debt ($mm) <b id="lblDebt"></b></label><input type="number" id="netdebt" value="30" step="1"></div>
-          <div class="field"><label>Shares (mm) <b id="lblShares"></b></label><input type="number" id="shares" value="12" step="0.5"></div>
+          <div class="field"><label><span class="lbltext">Net Debt ($mm) <span class="tip" tabindex="0" data-tip="Total debt minus cash &amp; investments. Subtracted from enterprise value to reach equity value.">?</span></span><b id="lblDebt"></b></label><input type="number" id="netdebt" value="30" step="1"></div>
+          <div class="field"><label><span class="lbltext">Shares (mm) <span class="tip" tabindex="0" data-tip="Diluted shares outstanding, used to convert equity value into a per-share price.">?</span></span><b id="lblShares"></b></label><input type="number" id="shares" value="12" step="0.5"></div>
         </div>
       </div>
 
       <div class="panel">
         <h2>Forecast Assumptions</h2>
         <div class="field">
-          <label>Revenue growth, Year 1 <b id="lblG1"></b></label>
+          <label><span class="lbltext">Revenue growth, Year 1 <span class="tip" tabindex="0" data-tip="Expected revenue growth rate in the first forecast year.">?</span></span><b id="lblG1"></b></label>
           <input type="range" id="growthStart" min="-5" max="30" value="10" step="0.5">
         </div>
         <div class="field">
-          <label>Revenue growth, fades to <b id="lblG2"></b></label>
+          <label><span class="lbltext">Revenue growth, fades to <span class="tip" tabindex="0" data-tip="The growth rate the model fades down to by the final forecast year — should approach a sustainable long-run rate.">?</span></span><b id="lblG2"></b></label>
           <input type="range" id="growthEnd" min="0" max="10" value="3" step="0.25">
         </div>
         <div class="field">
-          <label>Projection years <b id="lblYears"></b></label>
+          <label><span class="lbltext">Projection years <span class="tip" tabindex="0" data-tip="Number of years explicitly forecast before the terminal value takes over.">?</span></span><b id="lblYears"></b></label>
           <input type="range" id="years" min="3" max="10" value="5" step="1">
         </div>
         <div class="field">
-          <label>Tax rate <b id="lblTax"></b></label>
+          <label><span class="lbltext">Tax rate <span class="tip" tabindex="0" data-tip="Effective tax rate applied to EBIT to get after-tax operating profit (NOPAT).">?</span></span><b id="lblTax"></b></label>
           <input type="range" id="taxRate" min="0" max="40" value="25" step="1">
         </div>
       </div>
@@ -213,11 +259,11 @@
       <div class="panel">
         <h2>Discount Rate &amp; Terminal Value</h2>
         <div class="field">
-          <label>WACC <b id="lblWacc"></b></label>
+          <label><span class="lbltext">WACC <span class="tip" tabindex="0" data-tip="Weighted average cost of capital — the discount rate applied to future cash flows. Higher WACC means future cash is worth less today.">?</span></span><b id="lblWacc"></b></label>
           <input type="range" id="wacc" min="4" max="18" value="9" step="0.25">
         </div>
         <div class="field">
-          <label>Terminal growth rate <b id="lblTg"></b></label>
+          <label><span class="lbltext">Terminal growth rate <span class="tip" tabindex="0" data-tip="Assumed perpetual growth rate after the forecast period. Must stay below WACC or the valuation math breaks down.">?</span></span><b id="lblTg"></b></label>
           <input type="range" id="termGrowth" min="0" max="4.5" value="2.5" step="0.25">
         </div>
       </div>
@@ -229,6 +275,11 @@
         <div class="label">Implied share price</div>
         <div class="price" id="price">$0.00</div>
         <div class="delta" id="delta"></div>
+        <div class="warn-banner" id="waccWarn" hidden>
+          ⚠ WACC must exceed the terminal growth rate for the Gordon Growth formula to
+          produce a valid result. Raise WACC or lower terminal growth — the price below
+          excludes terminal value and understates the company.
+        </div>
 
         <div class="stats">
           <div class="stat"><div class="k">Enterprise Value</div><div class="v" id="ev">–</div></div>
@@ -239,6 +290,26 @@
         <div class="chart-wrap">
           <div class="bars" id="bars"></div>
         </div>
+      </div>
+
+      <div class="panel">
+        <h2>Scenario Comparison — Bear / Base / Bull</h2>
+        <div class="sub" style="margin-bottom:14px;">Base uses your sliders on the left. Bear/Bull apply the spreads below on top of it.</div>
+        <div class="scenario-controls">
+          <div class="field">
+            <label><span class="lbltext">Growth spread <span class="tip" tabindex="0" data-tip="How many percentage points to subtract (Bear) or add (Bull) to both growth-rate sliders.">?</span></span><b id="lblSpreadG"></b></label>
+            <input type="range" id="spreadGrowth" min="0" max="10" value="3" step="0.5">
+          </div>
+          <div class="field">
+            <label><span class="lbltext">WACC spread <span class="tip" tabindex="0" data-tip="How many percentage points to add (Bear) or subtract (Bull) from WACC.">?</span></span><b id="lblSpreadW"></b></label>
+            <input type="range" id="spreadWacc" min="0" max="4" value="1.5" step="0.25">
+          </div>
+          <div class="field">
+            <label><span class="lbltext">Terminal g spread <span class="tip" tabindex="0" data-tip="How many percentage points to subtract (Bear) or add (Bull) from the terminal growth rate.">?</span></span><b id="lblSpreadTg"></b></label>
+            <input type="range" id="spreadTg" min="0" max="1.5" value="0.5" step="0.1">
+          </div>
+        </div>
+        <div class="scenario-cards" id="scenarioCards"></div>
       </div>
 
       <div class="panel">
@@ -293,6 +364,9 @@ const els = {
   taxRate: document.getElementById('taxRate'),
   wacc: document.getElementById('wacc'),
   termGrowth: document.getElementById('termGrowth'),
+  spreadGrowth: document.getElementById('spreadGrowth'),
+  spreadWacc: document.getElementById('spreadWacc'),
+  spreadTg: document.getElementById('spreadTg'),
 };
 
 const fmtMoney = v => `$${v.toLocaleString(undefined,{maximumFractionDigits:1, minimumFractionDigits:1})}`;
@@ -356,6 +430,50 @@ function sensitivityGrid(revenue, ebit, n, g1, g2, taxRate, netDebt, shares, bas
   return {waccSteps, growthSteps, grid};
 }
 
+function renderScenarios(revenue, ebit, n, g1, g2, taxRate, netDebt, shares, wacc, termGrowth){
+  const sG = parseFloat(els.spreadGrowth.value);
+  const sW = parseFloat(els.spreadWacc.value);
+  const sTg = parseFloat(els.spreadTg.value);
+
+  document.getElementById('lblSpreadG').textContent = `±${sG.toFixed(1)}pt`;
+  document.getElementById('lblSpreadW').textContent = `±${sW.toFixed(2)}pt`;
+  document.getElementById('lblSpreadTg').textContent = `±${sTg.toFixed(1)}pt`;
+
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  const scenarios = [
+    {
+      key: 'bear', name: 'Bear',
+      g1: clamp(g1 - sG, -5, 30), g2: clamp(g2 - sG, 0, 10),
+      wacc: clamp(wacc + sW, 4, 18), termGrowth: clamp(termGrowth - sTg, 0, 4.5),
+    },
+    { key: 'base', name: 'Base', g1, g2, wacc, termGrowth },
+    {
+      key: 'bull', name: 'Bull',
+      g1: clamp(g1 + sG, -5, 30), g2: clamp(g2 + sG, 0, 10),
+      wacc: clamp(wacc - sW, 4, 18), termGrowth: clamp(termGrowth + sTg, 0, 4.5),
+    },
+  ];
+
+  const cardsEl = document.getElementById('scenarioCards');
+  cardsEl.innerHTML = scenarios.map(s => {
+    const rows = project(revenue, ebit, n, s.g1, s.g2, taxRate);
+    const val = valuation(rows, s.wacc, s.termGrowth, netDebt, shares);
+    const naNote = val.tv === null ? `<div class="sna">⚠ WACC ≤ growth</div>` : '';
+    return `
+      <div class="scenario-card ${s.key}">
+        <div class="sname">${s.name}</div>
+        <div class="sprice">${fmtMoney(val.price)}</div>
+        <div class="sdetail">
+          Growth ${fmtPct(s.g1)} → ${fmtPct(s.g2)}<br>
+          WACC ${fmtPct(s.wacc)} · Terminal g ${fmtPct(s.termGrowth)}<br>
+          EV ${fmtMoney(val.ev)}
+        </div>
+        ${naNote}
+      </div>`;
+  }).join('');
+}
+
 function render(){
   const revenue = parseFloat(els.revenue.value) || 0;
   const ebit = parseFloat(els.ebit.value) || 0;
@@ -378,11 +496,14 @@ function render(){
 
   const rows = project(revenue, ebit, n, g1, g2, taxRate);
   const val = valuation(rows, wacc, termGrowth, netDebt, shares);
+  renderScenarios(revenue, ebit, n, g1, g2, taxRate, netDebt, shares, wacc, termGrowth);
 
   // Hero price + delta vs last render
   const priceEl = document.getElementById('price');
   const deltaEl = document.getElementById('delta');
+  const warnEl = document.getElementById('waccWarn');
   priceEl.textContent = fmtMoney(val.price);
+  warnEl.hidden = val.tv !== null;
   if(lastPrice !== null && Math.abs(val.price - lastPrice) > 0.001){
     const diff = val.price - lastPrice;
     deltaEl.textContent = (diff>0?'▲ ':'▼ ') + fmtMoney(Math.abs(diff)) + ' vs last change';
